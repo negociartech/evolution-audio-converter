@@ -159,19 +159,54 @@ func validateAPIKey(c *gin.Context) bool {
 
 func convertAudio(inputData []byte, format string) ([]byte, int, error) {
 	var cmd *exec.Cmd
+
 	switch format {
-	case "mp3":
-		cmd = exec.Command("ffmpeg", "-i", "pipe:0",
-			"-ar", "44100", // sample rate
-			"-ac", "2", // canais (stereo)
-			"-b:a", "128k", // bitrate
-			"-c:a", "libmp3lame", // codec específico
-			"-f", "mp3", // formato
-			"pipe:1")
 	case "mp4":
-		cmd = exec.Command("ffmpeg", "-i", "pipe:0", "-vn", "-c:a", "aac", "-b:a", "128k", "-f", "adts", "pipe:1")
+		// Special handling for MP4
+		cmd = exec.Command("ffmpeg", "-i", "pipe:0",
+			"-vn",
+			"-c:a",
+			"aac",
+			"-b:a", "128k",
+			"-f", "adts",
+			"pipe:1",
+		)
 	default:
-		cmd = exec.Command("ffmpeg", "-i", "pipe:0", "-ac", "1", "-ar", "16000", "-c:a", "libopus", "-f", "ogg", "pipe:1")
+		// Any other audio format (e.g., .oga, .ogg, .mp3, .mp4, .m4a, .wav, etc.)
+		cmd = exec.Command("ffmpeg", "-i", "pipe:0",
+			"-f",
+			"ogg",
+			"-vn",
+			"-c:a",
+			"libopus",
+			"-avoid_negative_ts",
+			"make_zero",
+			"-b:a",
+			"128k",
+			"-ar",
+			"48000",
+			"-ac",
+			"1",
+			"-write_xing",
+			"0",
+			"-compression_level",
+			"10",
+			"-application",
+			"voip",
+			"-fflags",
+			"+bitexact",
+			"-flags",
+			"+bitexact",
+			"-id3v2_version",
+			"0",
+			"-map_metadata",
+			"-1",
+			"-map_chapters",
+			"-1",
+			"-write_bext",
+			"0",
+			"pipe:1",
+		)
 	}
 	outBuffer := bufferPool.Get().(*bytes.Buffer)
 	errBuffer := bufferPool.Get().(*bytes.Buffer)
